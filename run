@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Purges old backups in a directory.
+# First argument is a config file (default __dir__/config.json).
+
+require 'json'
+require 'logger'
+
+require_relative 'purger'
+
+$logger = Logger.new(STDOUT)
+$logger.level = Logger::INFO
+
+DRY_RUN = !(ENV['DRY_RUN'].nil? || ENV['DRY_RUN'].empty?)
+$logger.debug 'Doing a dry run.' if DRY_RUN
+
+CONFIG_FILE = ARGV.fetch(0, File.join(__dir__, 'config.json'))
+$logger.debug "Reading config file #{CONFIG_FILE}"
+CONFIG = JSON.parse(File.read(CONFIG_FILE)).freeze
+
+CONFIG.each do |purge_config|
+  $logger.debug purge_config.inspect
+  purge_config = purge_config.transform_keys(&:to_sym)
+  purge_config[:regexp] = Regexp.new(purge_config[:regexp]) if purge_config.key?(:regexp)
+  purger = Purger.new(**purge_config)
+  purger.send(DRY_RUN ? :dry_run : :run)
+end
